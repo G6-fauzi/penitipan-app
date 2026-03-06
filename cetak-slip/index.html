@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CETAK SLIP VA SMARTCARD</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Icon Library (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Calibri:wght@400;700&display=swap');
+
+        /* --- GLOBAL UI STYLES --- */
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .bg-grid-pattern { background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop-in { animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+        /* --- PRINT STYLES --- */
+        .page-a4 {
+            width: 210mm; min-height: 297mm; padding: 10mm;
+            background: white; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            margin: 0 auto; box-sizing: border-box; position: relative;
+        }
+
+        .slip-card {
+            width: 60mm; height: 20mm;
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 11.5pt; line-height: 1;
+            border: 1px solid black; background: white;
+            box-sizing: border-box; break-inside: avoid;
+            display: flex; flex-direction: column; color: black;
+            cursor: default;
+        }
+
+        .slip-row { height: 5mm; flex: 1; overflow: hidden; display: flex; align-items: center; border-bottom: 1px solid black; padding: 0 2px; white-space: nowrap; }
+        .slip-row:last-child { border-bottom: none; }
+        .label-col { width: 75px; flex-shrink: 0; }
+        .separator-col { width: 8px; flex-shrink: 0; text-align: left; }
+        .content-col { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+        .btn-delete { opacity: 0; transform: scale(0.8); transition: all 0.2s; }
+        .slip-card:hover .btn-delete { opacity: 1; transform: scale(1); }
+
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            body { background: white; }
+            .no-print { display: none !important; }
+            .page-a4 { width: 100%; box-shadow: none; margin: 0; padding: 0; }
+            .slip-card { border: 1px solid black !important; break-inside: avoid; }
+            .btn-delete { display: none; }
+            /* Memastikan toast container benar-benar hilang saat print */
+            #toastContainer { display: none !important; }
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen overflow-hidden">
+
+    <!-- TOAST NOTIFICATION (Ditambah class no-print) -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none no-print"></div>
+
+    <!-- SIDEBAR -->
+    <div class="w-full md:w-[400px] bg-white border-r border-slate-200 flex flex-col no-print shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
+        <div class="p-6 border-b border-slate-100 bg-white">
+            <div class="flex items-center gap-3 mb-1">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg text-white">
+                    <i data-lucide="printer" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800 tracking-tight">SMART SLIP</h1>
+                    <p class="text-xs font-medium text-slate-400">CETAK SLIP VA SMARTCARD</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
+                <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i data-lucide="pen-tool" class="w-4 h-4"></i> Manual Input
+                </h2>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-600 ml-1">Nama Santri</label>
+                    <input type="text" id="inputNama" placeholder="KOSONG UNTUK BLANGKO" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 uppercase font-medium">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-600 ml-1">Nomor VA</label>
+                    <input type="text" id="inputVa" value="900-2270-0002" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-600 ml-1">Jumlah Copy</label>
+                    <input type="number" id="inputJumlah" min="1" value="1" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-center">
+                </div>
+                <button onclick="addCards()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-slate-200 mt-2 flex justify-center gap-2">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Generate Slip
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p class="text-xs text-blue-600 font-medium mb-1">Total Slip</p>
+                    <p id="totalCountDisplay" class="text-2xl font-bold text-blue-700">0</p>
+                </div>
+                <div class="bg-amber-50 rounded-lg p-3 border border-amber-100 col-span-2">
+                    <p class="text-xs text-amber-700">Mode cetak <strong>2cm x 6cm</strong>. Pastikan scale printer 100%.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 border-t border-slate-100 bg-white space-y-3">
+            <button onclick="clearAll()" class="w-full py-2 text-xs font-medium text-red-500 hover:text-red-600 flex justify-center gap-1"><i data-lucide="trash-2" class="w-3 h-3"></i> Reset Data</button>
+            <button onclick="window.print()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl shadow-lg font-semibold flex justify-center gap-2 text-sm">
+                <i data-lucide="printer" class="w-5 h-5"></i> CETAK SEKARANG
+            </button>
+        </div>
+    </div>
+
+    <!-- PREVIEW AREA -->
+    <div class="flex-1 bg-slate-100 bg-grid-pattern overflow-auto flex flex-col items-center py-10 px-4">
+        <div id="printArea" class="page-a4 group">
+            <div id="cardContainer" class="flex flex-wrap content-start" style="gap: 1mm;"></div>
+            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-300">
+                <i data-lucide="layout-template" class="w-10 h-10 text-slate-300 mb-4"></i>
+                <p class="text-lg font-semibold text-slate-400">Area Kertas Kosong</p>
+            </div>
+        </div>
+    </div>
+
+<script type="module">
+    // --- 1. IMPORT FIREBASE (Gunakan versi yang kompatibel) ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue, remove, set } 
+    from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // --- 2. KONFIGURASI FIREBASE ANDA ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDEq2eSwz-z6k89cK9LPXZMpBzvmEr3kc4",
+        authDomain: "cetak-slip-va.firebaseapp.com",
+        databaseURL: "https://cetak-slip-va-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "cetak-slip-va",
+        storageBucket: "cetak-slip-va.firebasestorage.app",
+        messagingSenderId: "1072891523942",
+        appId: "1:1072891523942:web:43314a49241121e02a0ea7",
+        measurementId: "G-B8JK5NBLBZ"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app); // Memulai Database
+    const dbRef = ref(db, 'slips'); // Nama tabel penyimpanan: 'slips'
+
+    // --- 3. LOGIKA REALTIME DATABASE ---
+    
+    // FUNGSI: Mendengarkan perubahan data (Live Update)
+    onValue(dbRef, (snapshot) => {
+        const data = snapshot.val();
+        const container = document.getElementById('cardContainer');
+        const emptyState = document.getElementById('emptyState');
+        
+        container.innerHTML = ''; // Bersihkan layar sebelum render ulang
+
+        if (data) {
+            // Ubah data object dari Firebase menjadi Array
+            const cardsArray = Object.keys(data).map(key => ({
+                id: key, // Simpan ID unik dari Firebase
+                ...data[key]
+            }));
+
+            // Render semua kartu
+            cardsArray.forEach((card, index) => {
+                const html = `
+                <div class="slip-card group relative animate-pop-in" style="animation-delay: ${index * 0.02}s">
+                    <button onclick="window.deleteCard('${card.id}')" class="btn-delete absolute -top-2 -right-2 bg-white text-red-500 border border-red-100 rounded-full w-5 h-5 flex items-center justify-center shadow-md z-10 hover:bg-red-500 hover:text-white">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                    <div class="slip-row justify-center font-bold">SMARTCARD</div>
+                    <div class="slip-row">
+                        <div class="label-col">NAMA : ${card.nama} </div>
+                    </div>
+                    <div class="slip-row font-bold">
+                        <div class="label-col">NO.REK/VA</div><div class="separator-col">:</div>
+                        <div class="content-col">${card.va}</div>
+                    </div>
+                    <div class="slip-row" style="font-size: 11.5pt;">
+                        <div style="transform-origin: left; transform: scaleX(0.9); white-space: nowrap;">
+                            TRANFER DARI ATM SELAIN BSI : <span class="font-bold">451</span>
+                        </div>
+                    </div>
+                </div>`;
+                container.innerHTML += html;
+            });
+            
+            emptyState.style.display = 'none';
+            document.getElementById('totalCountDisplay').innerText = cardsArray.length;
+        } else {
+            emptyState.style.display = 'flex';
+            document.getElementById('totalCountDisplay').innerText = '0';
+        }
+        
+        lucide.createIcons(); // Render ulang icon
+    });
+
+    // --- 4. FUNGSI-FUNGSI AKSI (Wajib pakai window. karena type="module") ---
+
+    // Tambah Data Manual
+    window.addCards = function() {
+        const namaInput = document.getElementById('inputNama');
+        const vaInput = document.getElementById('inputVa');
+        const jumlah = parseInt(document.getElementById('inputJumlah').value) || 1;
+        
+        if (!vaInput.value) {
+            alert('Nomor VA harus diisi');
+            return;
+        }
+
+        // Kirim ke Firebase (Looping sesuai jumlah copy)
+        for (let i = 0; i < jumlah; i++) {
+            push(dbRef, {
+                nama: namaInput.value.toUpperCase(),
+                va: vaInput.value,
+                timestamp: Date.now()
+            });
+        }
+        
+        // Reset Input
+        namaInput.value = '';
+        namaInput.focus();
+        showToast(`${jumlah} Slip berhasil dikirim ke Server`);
+    };
+
+    // Hapus Satu Kartu
+    window.deleteCard = function(firebaseId) {
+        remove(ref(db, 'slips/' + firebaseId));
+    };
+
+    // Hapus Semua (Reset)
+    window.clearAll = function() {
+        if (confirm('Yakin hapus SEMUA data di server? Semua komputer akan kosong.')) {
+            set(dbRef, null);
+        }
+    };
+
+    // --- 5. INTEGRASI EKSTERNAL (URL & TAMPERMONKEY) ---
+
+    // Cek URL Parameter saat pertama kali buka
+    const params = new URLSearchParams(window.location.search);
+    const urlNama = params.get('nama');
+    const urlVa = params.get('va');
+
+    if (urlNama && urlVa) {
+        push(dbRef, {
+            nama: decodeURIComponent(urlNama).toUpperCase(),
+            va: decodeURIComponent(urlVa),
+            timestamp: Date.now()
+        }).then(() => {
+            // Bersihkan URL agar tidak input ganda saat refresh
+            window.history.replaceState({}, document.title, window.location.pathname);
+            showToast(`Data ${urlNama} masuk dari URL!`);
+        });
+    }
+
+    // Listener Pesan dari Tampermonkey
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'ADD_CARD') {
+            push(dbRef, {
+                nama: event.data.nama.toUpperCase(),
+                va: event.data.va,
+                timestamp: Date.now()
+            });
+            showToast(`Data ${event.data.nama} diterima dari Admin!`);
+        }
+    });
+
+    // --- 6. UTILITIES ---
+    function showToast(message) {
+        const container = document.getElementById('toastContainer');
+        if(!container) return;
+        
+        const toast = document.createElement('div');
+        toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border bg-white text-slate-700 border-slate-200 shadow-lg animate-pop-in pointer-events-auto`;
+        toast.innerHTML = `<i data-lucide="check-circle-2" class="w-5 h-5 text-green-500"></i><span class="text-sm font-medium">${message}</span>`;
+        container.appendChild(toast);
+        lucide.createIcons({ root: toast });
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    // Inisialisasi awal
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+    });
+</script>
+</body>
+</html>
+
+
+

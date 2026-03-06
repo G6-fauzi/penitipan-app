@@ -1,0 +1,124 @@
+// ==UserScript==
+// @name         CETAK VA APP Script
+// @namespace    http://tampermonkey.net/
+// @version      2.4
+// @description  Tombol cetak khusus untuk tabel React (rt-table) di PSP Admin
+// @author       Anda
+// @match        https://psp-admin.teknologikartu.com/main/master/user-account*
+// @grant        GM_openInTab
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // --- KONFIGURASI PENTING ---
+    const TARGET_APP_URL = "https://cetak-va.vercel.app/";
+
+    // Variabel untuk menyimpan referensi tab Smart Slip
+    let smartSlipWindow = null;
+
+    // --- FUNGSI UTAMA ---
+    function addPrintButtons() {
+        // Cari baris tabel
+        const rows = document.querySelectorAll('.rt-tr[role="row"]');
+
+        rows.forEach(row => {
+            // Hindari duplikasi tombol
+            if (row.querySelector('.btn-smart-print')) return;
+
+            // Cari lokasi tombol (di kolom aksi)
+            const actionContainer = row.querySelector('.rt-td:last-child .text-center');
+            const deleteBtn = row.querySelector('.btn-danger');
+
+            if (actionContainer && deleteBtn) {
+
+                // Buat Tombol Print
+                const printBtn = document.createElement('button');
+                printBtn.className = 'btn btn-sm btn-primary ml-1 btn-smart-print';
+                printBtn.innerHTML = '<i class="fa fa-print"></i>';
+                printBtn.title = 'Kirim ke Smart Slip';
+
+                // Styling
+                printBtn.style.backgroundColor = '#4F46E5';
+                printBtn.style.borderColor = '#4F46E5';
+                printBtn.style.color = 'white';
+                printBtn.style.marginLeft = '5px';
+                printBtn.style.cursor = 'pointer';
+                printBtn.style.padding = '4px 8px';
+                printBtn.style.borderRadius = '4px';
+
+                // Logika Klik
+                printBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const cells = row.querySelectorAll('.rt-td');
+                    let rawNama = "";
+                    let rawVa = "";
+
+                    // --- REVISI 1: PENGAMBILAN DATA YANG LEBIH CERDAS ---
+
+                    // 1. Ambil Nama (Biasanya di index 1)
+                    if (cells[1]) rawNama = cells[1].innerText.trim();
+
+                    // 2. Ambil VA (Cari kolom yang mengandung "BSI -")
+                    // Kita loop semua cell untuk mencari pola "BSI - ANGKA"
+                    cells.forEach(cell => {
+                        const text = cell.innerText;
+                        // Regex: Mencari kata "BSI", spasi/dash, lalu menangkap angkanya saja dalam grup (\d+)
+                        const match = text.match(/BSI\s*-\s*(\d+)/);
+                        if (match) {
+                            // match[1] berisi angka mentah, contoh: "900227000026236"
+                            const digits = match[1];
+
+                            // --- REVISI FORMAT VA: 900-2270-XXXX... ---
+                            if (digits.length >= 7) {
+                                // Ambil 3 digit pertama (900) + '-' + 4 digit berikutnya (2270) + '-' + Sisanya
+                                rawVa = `${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}`;
+                            } else {
+                                // Fallback jika digit terlalu pendek, pakai apa adanya
+                                rawVa = digits;
+                            }
+                        }
+                    });
+
+                    console.log("Data Terdeteksi -> Nama:", rawNama, "| VA:", rawVa);
+
+                    if(rawNama === "" || rawVa === "") {
+                        alert("Gagal mengambil data VA. Pastikan kolom 'BSI - ...' terlihat.");
+                        return;
+                    }
+
+                    // --- REVISI 2: LOGIKA "ADD TO PREVIEW" ---
+
+                    // Cek apakah window sudah terbuka dan belum diclose
+                    if (smartSlipWindow && !smartSlipWindow.closed) {
+                        // JIKA SUDAH BUKA: Kirim pesan (postMessage)
+                        smartSlipWindow.postMessage({
+                            type: 'ADD_CARD',
+                            nama: rawNama,
+                            va: rawVa
+                        }, '*');
+
+                        // Fokuskan ke window tersebut
+                        smartSlipWindow.focus();
+                    } else {
+                        // JIKA BELUM BUKA: Buka baru dengan URL parameter
+                        const finalUrl = `${TARGET_APP_URL}?nama=${encodeURIComponent(rawNama)}&va=${encodeURIComponent(rawVa)}`;
+
+                        // Gunakan window.open dengan nama window 'SmartSlipWindow' agar konsisten
+                        smartSlipWindow = window.open(finalUrl, 'SmartSlipWindow');
+                    }
+                };
+
+                // Pasang tombol
+                deleteBtn.parentNode.insertBefore(printBtn, deleteBtn.nextSibling);
+            }
+        });
+    }
+
+    // Jalankan pengecekan setiap detik
+    setInterval(addPrintButtons, 1000);
+
+
+})();

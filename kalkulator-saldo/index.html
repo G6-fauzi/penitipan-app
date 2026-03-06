@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saldo Makan Tracker</title>
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <!-- <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script> -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="min-h-screen flex items-center justify-center overflow-hidden bg-gray-900">
+
+  <div id="gradDefault" class="bg-layer"></div>
+  <div id="gradDark" class="bg-layer"></div>
+  <div id="tsparticles" class="bg-layer"></div>
+
+  <div id="videoWrapper" class="bg-layer">
+    <video id="bgVideo" autoplay muted loop playsinline></video>
+    <div id="videoOverlay"></div>
+  </div>
+
+  <div id="mainCard" class="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md text-center relative z-10 mx-4">
+    <h1 class="text-2xl font-bold text-indigo-700 mb-6">Kalkulator Saldo Makan</h1>
+
+    <label for="tanggalMulai" class="block text-gray-700 font-medium mb-1 text-left">Tanggal Isi Saldo</label>
+    <input type="date" id="tanggalMulai" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-colors">
+
+    <label for="jumlahHari" class="block text-gray-700 font-medium mb-1 text-left">Masa Berlaku (Hari)</label>
+    <input type="number" id="jumlahHari" min="1" value="30" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-6 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-colors">
+
+    <button onclick="hitungSaldo()" id="btnHitung" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition font-semibold shadow-md active:scale-95 transform duration-150">
+      Hitung Saldo
+    </button>
+
+    <div id="hasil" class="mt-8 text-lg font-medium text-gray-800"></div>
+
+    <div id="loading" class="hidden flex justify-center items-center mt-8">
+      <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
+      </svg>
+      <span class="ml-3 text-indigo-600 font-medium">Menghitung...</span>
+    </div>
+    
+    <p class="text-center text-xs text-gray-400 mt-10">© 2025 Saldo Tracker Pro</p>
+  </div>
+
+  <button id="themeToggle" title="Ganti Tema">🌓</button>
+
+  <script src="script.js"></script>
+</body>
+</html>

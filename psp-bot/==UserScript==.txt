@@ -1,0 +1,480 @@
+// ==UserScript==
+// @name         PSP BOT - Uji Coba (Versi Tampermonkey)
+// @namespace    http://tampermonkey.net/
+// @version      2.0
+// @description  Automasi Top Up PSP Admin (Pembaruan: Terminal/Console Monitor UI)
+// @author       Fauzi
+// @match        https://psp-admin.teknologikartu.com/main/payment/transaction/top-up*
+// @match        https://psp-admin.teknologikartu.com/main/master/account-id/*
+// @grant        window.close
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // --- SISTEM TERMINAL UI (HACKER CONSOLE) ---
+    let botConsole, headerText, headerIcon, logBody;
+    let currIdx = "?";
+    let totalData = "?";
+
+    function initTerminalUI(current, total) {
+        currIdx = current || "?";
+        totalData = total || "?";
+
+        // Inject CSS
+        const style = document.createElement('style');
+        style.innerHTML = `
+            #psp-bot-terminal {
+                position: fixed; bottom: 20px; left: 20px; z-index: 999999;
+                background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+                border: 1px solid #334155; border-radius: 12px;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 15px rgba(16, 185, 129, 0.2);
+                color: #10b981; font-family: 'Courier New', Courier, monospace;
+                width: 360px; height: 64px; overflow: hidden;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                display: flex; flex-direction: column;
+            }
+            #psp-bot-terminal.expanded {
+                width: 480px; height: 350px;
+            }
+            #psp-bot-header {
+                height: 64px; min-height: 64px; padding: 0 16px;
+                display: flex; align-items: center; justify-content: space-between;
+                cursor: pointer; border-bottom: 1px solid transparent;
+                user-select: none;
+            }
+            #psp-bot-terminal.expanded #psp-bot-header {
+                border-bottom-color: #334155; background: rgba(30, 41, 59, 0.8);
+            }
+            .header-left { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px; width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .header-icon { font-size: 18px; }
+            .toggle-icon { font-size: 12px; color: #64748b; transition: transform 0.3s; }
+            #psp-bot-terminal.expanded .toggle-icon { transform: rotate(180deg); }
+            
+            #psp-bot-logs {
+                flex-grow: 1; overflow-y: auto; padding: 12px 16px;
+                font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;
+            }
+            #psp-bot-logs::-webkit-scrollbar { width: 6px; }
+            #psp-bot-logs::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+            
+            .log-line { display: flex; gap: 8px; word-break: break-word; }
+            .log-time { color: #64748b; font-size: 11px; }
+            .log-msg { color: #cbd5e1; }
+            .log-msg.success { color: #10b981; font-weight: bold; }
+            .log-msg.error { color: #ef4444; font-weight: bold; }
+            .log-msg.warning { color: #f59e0b; }
+            .log-msg.loading { color: #38bdf8; }
+            
+            .spin { display: inline-block; animation: psp-spin 1s linear infinite; }
+            @keyframes psp-spin { 100% { transform: rotate(360deg); } }
+        `;
+        document.head.appendChild(style);
+
+        // Build HTML
+        botConsole = document.createElement('div');
+        botConsole.id = 'psp-bot-terminal';
+        botConsole.innerHTML = `
+            <div id="psp-bot-header" title="Klik untuk meluaskan/mengecilkan">
+                <div class="header-left">
+                    <span id="psp-header-icon" class="header-icon spin">⏳</span>
+                    <span id="psp-header-text">(${currIdx}/${totalData}) Menginisiasi Bot...</span>
+                </div>
+                <div class="toggle-icon">🔼</div>
+            </div>
+            <div id="psp-bot-logs"></div>
+        `;
+        document.body.appendChild(botConsole);
+
+        headerText = document.getElementById('psp-header-text');
+        headerIcon = document.getElementById('psp-header-icon');
+        logBody = document.getElementById('psp-bot-logs');
+
+        // Toggle Event
+        document.getElementById('psp-bot-header').addEventListener('click', () => {
+            botConsole.classList.toggle('expanded');
+        });
+    }
+
+    function pushLog(msg, type = 'info') {
+        if(!botConsole) return; // Jika UI belum diinisialisasi
+        
+        // Atur Ikon & Warna berdasarkan tipe
+        let iconHtml = '▶️';
+        let msgClass = 'info';
+        let isComplete = false;
+
+        if (type === 'loading') { iconHtml = '<span class="spin">⏳</span>'; msgClass = 'loading'; }
+        else if (type === 'success') { iconHtml = '✅'; msgClass = 'success'; isComplete = true; }
+        else if (type === 'error') { iconHtml = '❌'; msgClass = 'error'; isComplete = true; }
+        else if (type === 'warning') { iconHtml = '⚠️'; msgClass = 'warning'; }
+
+        // Update Header (Ringkasan)
+        headerText.innerText = `(${currIdx}/${totalData}) ${msg}`;
+        headerIcon.innerHTML = iconHtml;
+
+        // Hilangkan spin di akhir proses agar icon tetap diam
+        if (isComplete) headerIcon.classList.remove('spin');
+        else if (type === 'loading') headerIcon.classList.add('spin');
+
+        // Tambah ke riwayat Log (Body)
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour12: false });
+        const logLine = document.createElement('div');
+        logLine.className = 'log-line';
+        logLine.innerHTML = `<span class="log-time">[${timeStr}]</span> <span class="log-msg ${msgClass}">${iconHtml} ${msg}</span>`;
+        logBody.appendChild(logLine);
+
+        // Auto scroll ke bawah
+        logBody.scrollTop = logBody.scrollHeight;
+
+        // Cetak juga ke console browser (F12) untuk keperluan debugging asli
+        console.log(`[PSP BOT] ${msg}`);
+    }
+
+
+    // --- HELPER ASLI ---
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function waitForElement(selector, timeout = 5000) {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+            const el = document.querySelector(selector);
+            if (el) return el;
+            await sleep(100);
+        }
+        return null;
+    }
+
+    async function waitForXPath(xpath, timeout = 5000) {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+            const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            if (result) return result;
+            await sleep(100);
+        }
+        return null;
+    }
+
+    function setReactValue(element, value) {
+        const lastValue = element.value;
+        element.value = value;
+        const event = new Event('input', { bubbles: true });
+        const tracker = element._valueTracker;
+        if (tracker) {
+            tracker.setValue(lastValue);
+        }
+        element.dispatchEvent(event);
+    }
+
+    function kirimStatusKeDashboard(statusMsg, targetNis, errorMsg = "") {
+        if (statusMsg === "SUKSES") pushLog("Transaksi Berhasil!", "success");
+        else pushLog(`Gagal: ${errorMsg}`, "error");
+
+        if (window.opener) {
+            window.opener.postMessage({ type: 'BOT_STATUS', status: statusMsg, nis: targetNis, message: errorMsg }, '*');
+        } else {
+            pushLog("Peringatan: Tidak terhubung ke Dashboard", "warning");
+        }
+    }
+
+
+    // --- BOT CORE ---
+    async function runBot() {
+        const urlParams = new URLSearchParams(window.location.search);
+
+        if (urlParams.get('auto') !== 'true') {
+            console.log("Bot tidak dijalankan: Mode manual.");
+            return;
+        }
+
+        const targetNama = urlParams.get('nama') || "";
+        const targetNis = urlParams.get('nis') || "";
+        const targetNominal = urlParams.get('nominal') || "";
+        const targetNote = urlParams.get('note') || "";
+        
+        const strictNis = urlParams.get('strictNis') !== 'false';
+        const strictVa = urlParams.get('strictVa') === 'true'; 
+        const targetVa = urlParams.get('va') || "";
+        const strictAyah = urlParams.get('strictAyah') === 'true';
+        const targetAyah = decodeURIComponent(urlParams.get('ayah') || "");
+        const enableTags = urlParams.get('enableTags') === 'true';
+
+        const idx = urlParams.get('idx');
+        const total = urlParams.get('total');
+
+        // Jalankan UI
+        initTerminalUI(idx, total);
+        pushLog(`Memulai baris data: ${targetNama}`, "loading");
+
+        // ----------------------------------------------------------------------
+        // MODE 1: PENGISIAN TAGS DI HALAMAN ACCOUNT ID
+        // ----------------------------------------------------------------------
+        if (window.location.href.includes('/master/account-id/')) {
+            if (urlParams.get('action') === 'addTag' && enableTags) {
+                pushLog("Mode Tags Aktif. Menunggu render...", "loading");
+                await sleep(1500); 
+
+                const tagInput = await waitForElement('.react-tagsinput-input', 3000);
+                if (tagInput) {
+                    const tagsStr = urlParams.get('tags') || "";
+                    const tagsList = tagsStr.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+                    pushLog(`Menemukan ${tagsList.length} tag untuk disisipkan.`, "info");
+
+                    for (const tag of tagsList) {
+                        pushLog(`Menyisipkan tag: ${tag}...`, "loading");
+                        setReactValue(tagInput, tag);
+                        await sleep(200);
+                        tagInput.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', keyCode: 13 }));
+                        await sleep(300);
+                    }
+                    await sleep(1500);
+
+                    const saveBtn = await waitForElement('button.btn:nth-child(2)', 2000);
+                    if (saveBtn) {
+                        pushLog("Mengeklik tombol Simpan...", "info");
+                        saveBtn.click();
+                        await sleep(1000);
+                        
+                        const labelYa = await waitForElement('label[for="autoSavingYes"]', 2000);
+                        if (labelYa) {
+                            pushLog("Modal konfirmasi muncul. Memilih 'Ya'...", "loading");
+                            labelYa.click();
+                            await sleep(500);
+                            
+                            const modalSimpanBtn = await waitForElement('.modal-footer .btn-info', 2000);
+                            if (modalSimpanBtn) modalSimpanBtn.click();
+                        }
+
+                        pushLog("Menunggu notifikasi server...", "loading");
+                        const toastMsg = await waitForElement('.Toastify__toast-body', 6000);
+                        if (toastMsg) {
+                            pushLog(`Sukses: ${toastMsg.innerText}`, "success");
+                        } else {
+                            pushLog("Timeout toast, asumsi sukses.", "warning");
+                        }
+                        await sleep(1000); 
+
+                    } else {
+                        pushLog("Tombol simpan tidak ditemukan!", "error");
+                    }
+                } else {
+                    pushLog("Input tag gagal ditemukan.", "warning");
+                }
+
+                urlParams.delete('action');
+                const topUpUrl = "https://psp-admin.teknologikartu.com/main/payment/transaction/top-up?" + urlParams.toString();
+                pushLog("Beralih ke halaman Top Up...", "loading");
+                window.location.href = topUpUrl;
+                return; 
+                
+            } else {
+                urlParams.delete('action');
+                const topUpUrl = "https://psp-admin.teknologikartu.com/main/payment/transaction/top-up?" + urlParams.toString();
+                window.location.href = topUpUrl;
+                return;
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        // MODE 2: TOP UP DI HALAMAN PAYMENT TRANSACTION
+        // ----------------------------------------------------------------------
+        else if (window.location.href.includes('/payment/transaction/top-up')) {
+            pushLog("Menunggu web Top Up merender...", "loading");
+            await sleep(1500);
+
+            const namaInput = await waitForElement('#react-select-2-input');
+            if (namaInput) {
+                pushLog(`Mencari nama: ${targetNama}`, "loading");
+                namaInput.focus();
+                setReactValue(namaInput, targetNama);
+                await sleep(1500); 
+
+                const dropdownOptions = document.querySelectorAll('[id^="react-select-"][id*="-option-"]');
+                const totalOptions = dropdownOptions.length;
+
+                if (totalOptions === 0) {
+                    kirimStatusKeDashboard("GAGAL", targetNis, `Nama tidak ditemukan di dropdown.`);
+                    return;
+                }
+
+                if (strictVa) {
+                    if (!/^\d{6}$/.test(targetVa)) {
+                        kirimStatusKeDashboard("GAGAL", targetNis, `Input VA invalid: ${targetVa}`);
+                        return;
+                    }
+
+                    pushLog(`Mencocokkan 6 Digit VA (${targetVa})...`, "loading");
+                    let vaFound = false;
+
+                    for (let i = 0; i < totalOptions; i++) {
+                        const optionEl = dropdownOptions[i];
+                        const firstLineText = optionEl.innerText.split('\n')[0].trim();
+                        
+                        if (firstLineText.endsWith(targetVa)) {
+                            pushLog(`VA Cocok! Memilih elemen...`, "info");
+                            optionEl.click();
+                            vaFound = true;
+                            break;
+                        }
+                    }
+
+                    if (!vaFound) {
+                        kirimStatusKeDashboard("GAGAL", targetNis, `No VA ${targetVa} tidak ditemukan.`);
+                        return;
+                    }
+
+                } else {
+                    if (!strictNis) {
+                        if (totalOptions === 1) {
+                            pushLog("Semua Kemanan OFF: Tepat 1 data ditemukan.", "info");
+                            dropdownOptions[0].click();
+                        } else {
+                            if (strictAyah && targetAyah !== "") {
+                                pushLog(`Jalur Tikus Aktif: Mengecek Nama Ayah dari ${totalOptions} data...`, "loading");
+                                let matchedOptions = [];
+
+                                for (let i = 0; i < totalOptions; i++) {
+                                    const optionEl = dropdownOptions[i];
+                                    const ayahEl = optionEl.querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1)');
+                                    if (ayahEl && ayahEl.innerText.toLowerCase().includes(targetAyah.toLowerCase())) {
+                                        matchedOptions.push(optionEl);
+                                    }
+                                }
+
+                                if (matchedOptions.length === 1) {
+                                    pushLog("Jalur Tikus Tembus: 1 data cocok dgn Nama Ayah.", "success");
+                                    matchedOptions[0].click();
+                                } else {
+                                    kirimStatusKeDashboard("GAGAL", targetNis, `Jalur tikus menemukan ${matchedOptions.length} kecocokan (harus 1).`);
+                                    return;
+                                }
+                            } else {
+                                kirimStatusKeDashboard("GAGAL", targetNis, `Ditemukan ${totalOptions} nama kembar. Mode keamanan dimatikan.`);
+                                return;
+                            }
+                        }
+                    } else {
+                        pushLog(`Mengecek NIS secara iteratif pada ${totalOptions} data...`, "loading");
+                        let isMatched = false;
+                        const nisSelector = 'div.required:nth-child(3) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)';
+
+                        for (let idx = 0; idx < totalOptions; idx++) {
+                            pushLog(`Memeriksa data ke-${idx+1}...`, "loading");
+                            if (idx > 0) {
+                                setReactValue(namaInput, targetNama);
+                                await sleep(1500); 
+                            }
+                            
+                            const currentOptions = document.querySelectorAll('[id^="react-select-"][id*="-option-"]');
+                            if (currentOptions[idx]) {
+                                currentOptions[idx].click();
+                                await sleep(1500); 
+                                
+                                const nisEl = await waitForElement(nisSelector, 2000);
+                                if (nisEl) {
+                                    const extractedNis = nisEl.innerText.trim().split('-').pop().trim();
+                                    if (extractedNis === targetNis) {
+                                        pushLog(`NIS Cocok!`, "success");
+                                        isMatched = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!isMatched) {
+                            if (strictAyah && targetAyah !== "") {
+                                pushLog(`NIS tidak ada yang cocok. Fallback ke Jalur Tikus (Nama Ayah)...`, "warning");
+                                setReactValue(namaInput, targetNama);
+                                await sleep(1500); 
+                                
+                                const currentOptions = document.querySelectorAll('[id^="react-select-"][id*="-option-"]');
+                                let matchedOptions = [];
+
+                                for (let i = 0; i < currentOptions.length; i++) {
+                                    const optionEl = currentOptions[i];
+                                    const ayahEl = optionEl.querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1)');
+                                    if (ayahEl && ayahEl.innerText.toLowerCase().includes(targetAyah.toLowerCase())) {
+                                        matchedOptions.push(optionEl);
+                                    }
+                                }
+
+                                if (matchedOptions.length === 1) {
+                                    pushLog("Jalur Tikus Tembus: 1 data cocok dgn Nama Ayah.", "success");
+                                    matchedOptions[0].click();
+                                } else {
+                                    kirimStatusKeDashboard("GAGAL", targetNis, `NIS Gagal & Jalur Tikus ayah menemukan ${matchedOptions.length} kecocokan.`);
+                                    return;
+                                }
+                            } else {
+                                kirimStatusKeDashboard("GAGAL", targetNis, `Tidak ada NIS yang cocok dari list.`);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            await sleep(1000);
+            let isNisCocok = false;
+            let extractedNis = "Tidak dicek";
+
+            if (strictNis) {
+                pushLog("Verifikasi Akhir Data Kartu Santri...", "loading");
+                const nisSelector = 'div.required:nth-child(3) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)';
+                const nisEl = await waitForElement(nisSelector);
+                
+                if (nisEl) {
+                    extractedNis = nisEl.innerText.trim().split('-').pop().trim();
+                    if (extractedNis === targetNis) isNisCocok = true;
+                    else if (strictAyah && targetAyah !== "") {
+                        pushLog("NIS dilewati karena otoritas Jalur Tikus (Nama Ayah).", "warning");
+                        isNisCocok = true;
+                    }
+                } else {
+                     kirimStatusKeDashboard("GAGAL", targetNis, "Elemen data santri tidak muncul.");
+                     return;
+                }
+            } else {
+                isNisCocok = true;
+            }
+
+            if (isNisCocok) {
+                pushLog("Mengisi nominal dan keterangan...", "info");
+                const nominalInput = await waitForElement('input#nominal');
+                if (nominalInput) setReactValue(nominalInput, targetNominal);
+                await sleep(50);
+
+                const noteInput = await waitForElement('input#note');
+                if (noteInput) setReactValue(noteInput, targetNote);
+                await sleep(50);
+
+                pushLog("Menyimpan transaksi...", "loading");
+                const btnConfirm = await waitForXPath('/html/body/div[1]/div[2]/div/div/div/div[2]/div/div/form/div[2]/button');
+                if (btnConfirm) btnConfirm.click();
+
+                await sleep(500);
+                const btnConfirmPopup = await waitForXPath('/html/body/div[3]/div/div[1]/div/div/div/div[3]/button[2]');
+                if (btnConfirmPopup) btnConfirmPopup.click();
+
+                pushLog("Menunggu persetujuan server...", "loading");
+                const toast = await waitForElement('.Toastify__toast-body', 6000);
+                if (toast) {
+                    kirimStatusKeDashboard("SUKSES", targetNis, "Transaksi berhasil");
+                } else {
+                    kirimStatusKeDashboard("GAGAL", targetNis, "Tidak ada pop-up sukses dari server");
+                }
+                await sleep(1500);
+
+            } else {
+                kirimStatusKeDashboard("GAGAL", targetNis, `Validasi Data Gagal di tahap akhir.`);
+            }
+        }
+    }
+
+    window.addEventListener('load', () => {
+        setTimeout(runBot, 1000);
+    });
+
+})();
