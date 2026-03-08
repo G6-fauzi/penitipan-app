@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         PSP BOT - Uji Coba (Versi Tampermonkey)
+// @name         PSP AUTO TOP UP
 // @namespace    http://tampermonkey.net/
 // @version      2.0
 // @description  Automasi Top Up PSP Admin (Pembaruan: Terminal/Console Monitor UI)
@@ -50,14 +50,14 @@
             .header-icon { font-size: 18px; }
             .toggle-icon { font-size: 12px; color: #64748b; transition: transform 0.3s; }
             #psp-bot-terminal.expanded .toggle-icon { transform: rotate(180deg); }
-            
+
             #psp-bot-logs {
                 flex-grow: 1; overflow-y: auto; padding: 12px 16px;
                 font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;
             }
             #psp-bot-logs::-webkit-scrollbar { width: 6px; }
             #psp-bot-logs::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-            
+
             .log-line { display: flex; gap: 8px; word-break: break-word; }
             .log-time { color: #64748b; font-size: 11px; }
             .log-msg { color: #cbd5e1; }
@@ -65,7 +65,7 @@
             .log-msg.error { color: #ef4444; font-weight: bold; }
             .log-msg.warning { color: #f59e0b; }
             .log-msg.loading { color: #38bdf8; }
-            
+
             .spin { display: inline-block; animation: psp-spin 1s linear infinite; }
             @keyframes psp-spin { 100% { transform: rotate(360deg); } }
         `;
@@ -98,7 +98,7 @@
 
     function pushLog(msg, type = 'info') {
         if(!botConsole) return; // Jika UI belum diinisialisasi
-        
+
         // Atur Ikon & Warna berdasarkan tipe
         let iconHtml = '▶️';
         let msgClass = 'info';
@@ -191,9 +191,9 @@
         const targetNis = urlParams.get('nis') || "";
         const targetNominal = urlParams.get('nominal') || "";
         const targetNote = urlParams.get('note') || "";
-        
+
         const strictNis = urlParams.get('strictNis') !== 'false';
-        const strictVa = urlParams.get('strictVa') === 'true'; 
+        const strictVa = urlParams.get('strictVa') === 'true';
         const targetVa = urlParams.get('va') || "";
         const strictAyah = urlParams.get('strictAyah') === 'true';
         const targetAyah = decodeURIComponent(urlParams.get('ayah') || "");
@@ -212,7 +212,7 @@
         if (window.location.href.includes('/master/account-id/')) {
             if (urlParams.get('action') === 'addTag' && enableTags) {
                 pushLog("Mode Tags Aktif. Menunggu render...", "loading");
-                await sleep(1500); 
+                await sleep(1500);
 
                 const tagInput = await waitForElement('.react-tagsinput-input', 3000);
                 if (tagInput) {
@@ -235,13 +235,13 @@
                         pushLog("Mengeklik tombol Simpan...", "info");
                         saveBtn.click();
                         await sleep(1000);
-                        
+
                         const labelYa = await waitForElement('label[for="autoSavingYes"]', 2000);
                         if (labelYa) {
                             pushLog("Modal konfirmasi muncul. Memilih 'Ya'...", "loading");
                             labelYa.click();
                             await sleep(500);
-                            
+
                             const modalSimpanBtn = await waitForElement('.modal-footer .btn-info', 2000);
                             if (modalSimpanBtn) modalSimpanBtn.click();
                         }
@@ -253,7 +253,7 @@
                         } else {
                             pushLog("Timeout toast, asumsi sukses.", "warning");
                         }
-                        await sleep(1000); 
+                        await sleep(1000);
 
                     } else {
                         pushLog("Tombol simpan tidak ditemukan!", "error");
@@ -266,8 +266,8 @@
                 const topUpUrl = "https://psp-admin.teknologikartu.com/main/payment/transaction/top-up?" + urlParams.toString();
                 pushLog("Beralih ke halaman Top Up...", "loading");
                 window.location.href = topUpUrl;
-                return; 
-                
+                return;
+
             } else {
                 urlParams.delete('action');
                 const topUpUrl = "https://psp-admin.teknologikartu.com/main/payment/transaction/top-up?" + urlParams.toString();
@@ -288,7 +288,7 @@
                 pushLog(`Mencari nama: ${targetNama}`, "loading");
                 namaInput.focus();
                 setReactValue(namaInput, targetNama);
-                await sleep(1500); 
+                await sleep(1500);
 
                 const dropdownOptions = document.querySelectorAll('[id^="react-select-"][id*="-option-"]');
                 const totalOptions = dropdownOptions.length;
@@ -310,7 +310,7 @@
                     for (let i = 0; i < totalOptions; i++) {
                         const optionEl = dropdownOptions[i];
                         const firstLineText = optionEl.innerText.split('\n')[0].trim();
-                        
+
                         if (firstLineText.endsWith(targetVa)) {
                             pushLog(`VA Cocok! Memilih elemen...`, "info");
                             optionEl.click();
@@ -363,14 +363,14 @@
                             pushLog(`Memeriksa data ke-${idx+1}...`, "loading");
                             if (idx > 0) {
                                 setReactValue(namaInput, targetNama);
-                                await sleep(1500); 
+                                await sleep(1500);
                             }
-                            
+
                             const currentOptions = document.querySelectorAll('[id^="react-select-"][id*="-option-"]');
                             if (currentOptions[idx]) {
                                 currentOptions[idx].click();
-                                await sleep(1500); 
-                                
+                                await sleep(1500);
+
                                 const nisEl = await waitForElement(nisSelector, 2000);
                                 if (nisEl) {
                                     const extractedNis = nisEl.innerText.trim().split('-').pop().trim();
@@ -387,8 +387,8 @@
                             if (strictAyah && targetAyah !== "") {
                                 pushLog(`NIS tidak ada yang cocok. Fallback ke Jalur Tikus (Nama Ayah)...`, "warning");
                                 setReactValue(namaInput, targetNama);
-                                await sleep(1500); 
-                                
+                                await sleep(1500);
+
                                 const currentOptions = document.querySelectorAll('[id^="react-select-"][id*="-option-"]');
                                 let matchedOptions = [];
 
@@ -424,7 +424,7 @@
                 pushLog("Verifikasi Akhir Data Kartu Santri...", "loading");
                 const nisSelector = 'div.required:nth-child(3) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)';
                 const nisEl = await waitForElement(nisSelector);
-                
+
                 if (nisEl) {
                     extractedNis = nisEl.innerText.trim().split('-').pop().trim();
                     if (extractedNis === targetNis) isNisCocok = true;
@@ -455,7 +455,7 @@
                 if (btnConfirm) btnConfirm.click();
 
                 await sleep(500);
-                const btnConfirmPopup = await waitForXPath('/html/body/div[3]/div/div[1]/div/div/div/div[3]/button[2]');
+                let btnConfirmPopup = await waitForElement('.modal-dialog .modal-footer button:nth-child(2)', 2500);
                 if (btnConfirmPopup) btnConfirmPopup.click();
 
                 pushLog("Menunggu persetujuan server...", "loading");
